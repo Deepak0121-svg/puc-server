@@ -528,7 +528,7 @@ def view_data():
 
                 <th>Machine ID</th>
 
-                <th>Vehicle No</th>
+                
 
                 <th>CO</th>
 
@@ -557,7 +557,7 @@ def view_data():
 
                 <td>{row['machine_id']}</td>
 
-                <td>{row['vehicle_no']}</td>
+               
 
                 <td>{row['co']}</td>
 
