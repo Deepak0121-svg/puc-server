@@ -38,6 +38,19 @@ def init_db():
         )
     """)
 
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS raw_machine_data (
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            received_at TEXT,
+
+            machine_id TEXT,
+
+            raw_hex TEXT
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -58,6 +71,19 @@ def home():
 
         <title>PUC Pollution Server</title>
 
+        <style>
+
+            body {
+                font-family: Arial;
+                margin: 40px;
+            }
+
+            a {
+                font-size: 18px;
+            }
+
+        </style>
+
     </head>
 
     <body>
@@ -66,13 +92,31 @@ def home():
 
         <p>Server is running successfully.</p>
 
-        <h3>API Endpoint</h3>
+        <h3>API Endpoints</h3>
 
-        <p>/api/v1/puc/results</p>
+        <p>
+            Pollution Data:
+            /api/v1/puc/results
+        </p>
 
-        <h3>View Results</h3>
+        <p>
+            Raw Machine Data:
+            /api/v1/puc/raw
+        </p>
 
-        <p>/view</p>
+        <h3>View Data</h3>
+
+        <p>
+            <a href="/view">
+                View Pollution Results
+            </a>
+        </p>
+
+        <p>
+            <a href="/raw">
+                View Raw Machine Data
+            </a>
+        </p>
 
     </body>
 
@@ -212,7 +256,7 @@ def receive_data():
     # TERMINAL OUTPUT
     # ----------------------------------------------
 
-    print("\n")
+    print()
     print("==============================================")
     print("         PUC DATA RECEIVED")
     print("==============================================")
@@ -234,7 +278,7 @@ def receive_data():
     print("Result        :", result)
 
     print("==============================================")
-    print("\n")
+    print()
 
 
     # ----------------------------------------------
@@ -245,17 +289,143 @@ def receive_data():
 
         "status": "success",
 
-        "message": "Pollution data received successfully",
+        "message":
+        "Pollution data received successfully",
 
         "machine_id": machine_id,
 
         "vehicle_no": vehicle_no
 
-    })
+    }), 200
 
 
 # ==================================================
-# VIEW DATA
+# RECEIVE RAW PUC MACHINE HEX DATA
+# ==================================================
+
+@app.route(
+    "/api/v1/puc/raw",
+    methods=["POST"]
+)
+def receive_raw_data():
+
+    data = request.get_json(silent=True)
+
+    if not data:
+
+        return jsonify({
+            "status": "error",
+            "message": "JSON data not received"
+        }), 400
+
+
+    machine_id = data.get("machine_id")
+
+    raw_hex = data.get("raw_hex")
+
+
+    # ----------------------------------------------
+    # VALIDATION
+    # ----------------------------------------------
+
+    if not machine_id:
+
+        return jsonify({
+            "status": "error",
+            "message": "machine_id is required"
+        }), 400
+
+
+    if not raw_hex:
+
+        return jsonify({
+            "status": "error",
+            "message": "raw_hex is required"
+        }), 400
+
+
+    # ----------------------------------------------
+    # TIME
+    # ----------------------------------------------
+
+    received_at = datetime.now().strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+
+    # ----------------------------------------------
+    # SAVE RAW DATA
+    # ----------------------------------------------
+
+    conn = sqlite3.connect(DATABASE)
+
+    conn.execute("""
+        INSERT INTO raw_machine_data
+        (
+            received_at,
+            machine_id,
+            raw_hex
+        )
+
+        VALUES (?, ?, ?)
+
+    """, (
+
+        received_at,
+
+        machine_id,
+
+        raw_hex
+
+    ))
+
+    conn.commit()
+
+    conn.close()
+
+
+    # ----------------------------------------------
+    # TERMINAL OUTPUT
+    # ----------------------------------------------
+
+    print()
+    print("==============================================")
+    print("       RAW PUC MACHINE DATA RECEIVED")
+    print("==============================================")
+
+    print("Received Time :", received_at)
+
+    print("Machine ID    :", machine_id)
+
+    print()
+    print("RAW HEX DATA:")
+    print(raw_hex)
+
+    print()
+    print("==============================================")
+    print()
+
+
+    # ----------------------------------------------
+    # RESPONSE
+    # ----------------------------------------------
+
+    return jsonify({
+
+        "status": "success",
+
+        "message":
+        "Raw PUC data received successfully",
+
+        "machine_id": machine_id,
+
+        "received_at": received_at
+
+    }), 200
+
+
+# ==================================================
+# VIEW POLLUTION DATA
 # ==================================================
 
 @app.route("/view", methods=["GET"])
@@ -276,10 +446,6 @@ def view_data():
 
     conn.close()
 
-
-    # ----------------------------------------------
-    # HTML
-    # ----------------------------------------------
 
     html = """
 
@@ -379,10 +545,6 @@ def view_data():
     """
 
 
-    # ----------------------------------------------
-    # TABLE ROWS
-    # ----------------------------------------------
-
     for row in rows:
 
         html += f"""
@@ -427,31 +589,199 @@ def view_data():
 
 
 # ==================================================
+# VIEW RAW MACHINE DATA
+# ==================================================
+
+@app.route("/raw", methods=["GET"])
+def view_raw_data():
+
+    conn = sqlite3.connect(DATABASE)
+
+    conn.row_factory = sqlite3.Row
+
+    rows = conn.execute("""
+        SELECT *
+
+        FROM raw_machine_data
+
+        ORDER BY id DESC
+
+    """).fetchall()
+
+    conn.close()
+
+
+    html = """
+
+    <!DOCTYPE html>
+
+    <html>
+
+    <head>
+
+        <title>Raw PUC Machine Data</title>
+
+        <meta
+            http-equiv="refresh"
+            content="5"
+        >
+
+        <style>
+
+            body {
+
+                font-family: Arial;
+
+                margin: 30px;
+
+                background: #f5f5f5;
+
+            }
+
+            table {
+
+                border-collapse: collapse;
+
+                width: 100%;
+
+                background: white;
+
+            }
+
+            th, td {
+
+                border: 1px solid #999;
+
+                padding: 10px;
+
+            }
+
+            th {
+
+                background: #eeeeee;
+
+            }
+
+            .hex {
+
+                font-family: monospace;
+
+                word-break: break-all;
+
+            }
+
+        </style>
+
+    </head>
+
+
+    <body>
+
+        <h1>
+            Raw PUC Machine Data
+        </h1>
+
+
+        <table>
+
+            <tr>
+
+                <th>ID</th>
+
+                <th>Received Time</th>
+
+                <th>Machine ID</th>
+
+                <th>Raw HEX</th>
+
+            </tr>
+
+    """
+
+
+    for row in rows:
+
+        html += f"""
+
+            <tr>
+
+                <td>{row['id']}</td>
+
+                <td>{row['received_at']}</td>
+
+                <td>{row['machine_id']}</td>
+
+                <td class="hex">
+                    {row['raw_hex']}
+                </td>
+
+            </tr>
+
+        """
+
+
+    html += """
+
+        </table>
+
+    </body>
+
+    </html>
+
+    """
+
+
+    return html
+
+
+# ==================================================
 # START SERVER
 # ==================================================
 
-# Initialize database when application starts
 init_db()
 
 
 if __name__ == "__main__":
 
-    print("\n")
+    print()
     print("==============================================")
     print("       PUC POLLUTION SERVER STARTED")
     print("==============================================")
 
+    print()
     print("Local URL:")
     print("http://127.0.0.1:5000")
 
-    print("\nAPI URL:")
-    print("http://127.0.0.1:5000/api/v1/puc/results")
+    print()
+    print("Pollution API:")
+    print(
+        "http://127.0.0.1:5000/"
+        "api/v1/puc/results"
+    )
 
-    print("\nVIEW URL:")
-    print("http://127.0.0.1:5000/view")
+    print()
+    print("Raw Data API:")
+    print(
+        "http://127.0.0.1:5000/"
+        "api/v1/puc/raw"
+    )
 
+    print()
+    print("View Pollution Results:")
+    print(
+        "http://127.0.0.1:5000/view"
+    )
+
+    print()
+    print("View Raw Machine Data:")
+    print(
+        "http://127.0.0.1:5000/raw"
+    )
+
+    print()
     print("==============================================")
-    print("\n")
+    print()
+
 
     app.run(
         host="0.0.0.0",
