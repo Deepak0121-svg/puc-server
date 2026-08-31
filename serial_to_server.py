@@ -12,7 +12,7 @@ COM_PORT = "COM14"
 BAUDRATE = 9600
 
 SERVER_URL = (
-    "https://puc-data-server.onrender.com"
+    "https://puc-server.onrender.com/raw"
     "/api/v1/puc/raw"
 )
 
