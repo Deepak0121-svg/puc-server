@@ -12,8 +12,8 @@ COM_PORT = "COM14"
 BAUDRATE = 9600
 
 SERVER_URL = (
-    "https://puc-server.onrender.com/raw"
-    "/api/v1/puc/raw"
+    "https://puc-server.onrender.com/api/v1/puc/raw"
+    
 )
 
 MACHINE_ID = "PUC001"
