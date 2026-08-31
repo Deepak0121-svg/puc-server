@@ -430,53 +430,31 @@ def view_data():
 # START SERVER
 # ==================================================
 
-if __name__ == "__main__":
+# Initialize database when application starts
+init_db()
 
-    init_db()
+
+if __name__ == "__main__":
 
     print("\n")
     print("==============================================")
     print("       PUC POLLUTION SERVER STARTED")
     print("==============================================")
 
-    print(
-        "Local URL:"
-    )
+    print("Local URL:")
+    print("http://127.0.0.1:5000")
 
-    print(
-        "http://127.0.0.1:5000"
-    )
+    print("\nAPI URL:")
+    print("http://127.0.0.1:5000/api/v1/puc/results")
 
-    print("\n")
-
-    print(
-        "API URL:"
-    )
-
-    print(
-        "http://127.0.0.1:5000/api/v1/puc/results"
-    )
-
-    print("\n")
-
-    print(
-        "VIEW URL:"
-    )
-
-    print(
-        "http://127.0.0.1:5000/view"
-    )
+    print("\nVIEW URL:")
+    print("http://127.0.0.1:5000/view")
 
     print("==============================================")
     print("\n")
 
-
     app.run(
-
         host="0.0.0.0",
-
         port=5000,
-
         debug=True
-
     )
