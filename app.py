@@ -3,9 +3,6 @@ import sqlite3
 from datetime import datetime
 import html
 
-from decoder import decode_puc_hex
-
-
 app = Flask(__name__)
 
 DATABASE = "data.db"
@@ -20,42 +17,51 @@ def init_db():
     conn = sqlite3.connect(DATABASE)
 
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS pollution_results (
-
+        CREATE TABLE IF NOT EXISTS machine_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-
             received_at TEXT,
-
             machine_id TEXT,
-
-            co REAL,
-
-            hc REAL,
-
-            co2 REAL,
-
-            o2 REAL,
-
-            result TEXT
-        )
-    """)
-
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS raw_machine_data (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            received_at TEXT,
-
-            machine_id TEXT,
-
-            raw_hex TEXT
+            raw_data TEXT,
+            content_type TEXT
         )
     """)
 
     conn.commit()
-
     conn.close()
+
+
+# ============================================================
+# SAVE DATA
+# ============================================================
+
+def save_data(machine_id, raw_data, content_type):
+
+    received_at = datetime.now().strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+    conn = sqlite3.connect(DATABASE)
+
+    conn.execute("""
+        INSERT INTO machine_data
+        (
+            received_at,
+            machine_id,
+            raw_data,
+            content_type
+        )
+        VALUES (?, ?, ?, ?)
+    """, (
+        received_at,
+        machine_id,
+        raw_data,
+        content_type
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return received_at
 
 
 # ============================================================
@@ -72,7 +78,7 @@ def home():
 
     <head>
 
-        <title>PUC Pollution Server</title>
+        <title>PUC GSM Server</title>
 
         <style>
 
@@ -85,8 +91,8 @@ def home():
             .box {
                 background: white;
                 padding: 25px;
-                border-radius: 10px;
                 margin-bottom: 20px;
+                border-radius: 10px;
             }
 
             a {
@@ -101,7 +107,7 @@ def home():
 
         <div class="box">
 
-            <h1>PUC Pollution Data Server</h1>
+            <h1>PUC GSM Data Server</h1>
 
             <p>
                 Server is running successfully.
@@ -111,15 +117,10 @@ def home():
 
         <div class="box">
 
-            <h2>API Endpoints</h2>
+            <h2>API Endpoint</h2>
 
             <p>
-                Pollution API:
-                <b>/api/v1/puc/results</b>
-            </p>
-
-            <p>
-                Raw Machine API:
+                POST:
                 <b>/api/v1/puc/raw</b>
             </p>
 
@@ -127,17 +128,11 @@ def home():
 
         <div class="box">
 
-            <h2>View Data</h2>
+            <h2>View Received Data</h2>
 
             <p>
                 <a href="/view">
-                    View Pollution Results
-                </a>
-            </p>
-
-            <p>
-                <a href="/raw">
-                    View Raw Machine Data
+                    View Data
                 </a>
             </p>
 
@@ -150,225 +145,20 @@ def home():
 
 
 # ============================================================
-# NORMAL POLLUTION API
+# HEALTH CHECK
 # ============================================================
 
-@app.route(
-    "/api/v1/puc/results",
-    methods=["GET", "POST"]
-)
-def receive_data():
-
-    # ========================================================
-    # GET
-    # ========================================================
-
-    if request.method == "GET":
-
-        machine_id = request.args.get(
-            "machine_id"
-        )
-
-        co = request.args.get(
-            "co"
-        )
-
-        hc = request.args.get(
-            "hc"
-        )
-
-        co2 = request.args.get(
-            "co2"
-        )
-
-        o2 = request.args.get(
-            "o2"
-        )
-
-        result = request.args.get(
-            "result"
-        )
-
-    # ========================================================
-    # POST
-    # ========================================================
-
-    else:
-
-        data = request.get_json(
-            silent=True
-        )
-
-        if not data:
-
-            return jsonify({
-
-                "status": "error",
-
-                "message":
-                "JSON data not received"
-
-            }), 400
-
-        machine_id = data.get(
-            "machine_id"
-        )
-
-        co = data.get(
-            "co"
-        )
-
-        hc = data.get(
-            "hc"
-        )
-
-        co2 = data.get(
-            "co2"
-        )
-
-        o2 = data.get(
-            "o2"
-        )
-
-        result = data.get(
-            "result"
-        )
-
-    # ========================================================
-    # VALIDATION
-    # ========================================================
-
-    if not machine_id:
-
-        return jsonify({
-
-            "status": "error",
-
-            "message":
-            "machine_id is required"
-
-        }), 400
-
-    # ========================================================
-    # TIME
-    # ========================================================
-
-    received_at = datetime.now().strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-
-    # ========================================================
-    # DATABASE
-    # ========================================================
-
-    conn = sqlite3.connect(
-        DATABASE
-    )
-
-    conn.execute("""
-        INSERT INTO pollution_results
-        (
-            received_at,
-            machine_id,
-            co,
-            hc,
-            co2,
-            o2,
-            result
-        )
-
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-
-        received_at,
-
-        machine_id,
-
-        co,
-
-        hc,
-
-        co2,
-
-        o2,
-
-        result
-
-    ))
-
-    conn.commit()
-
-    conn.close()
-
-    # ========================================================
-    # TERMINAL
-    # ========================================================
-
-    print()
-
-    print("==============================================")
-
-    print("          PUC DATA RECEIVED")
-
-    print("==============================================")
-
-    print(
-        "Received Time :",
-        received_at
-    )
-
-    print(
-        "Machine ID    :",
-        machine_id
-    )
-
-    print(
-        "CO            :",
-        co
-    )
-
-    print(
-        "HC            :",
-        hc
-    )
-
-    print(
-        "CO2           :",
-        co2
-    )
-
-    print(
-        "O2            :",
-        o2
-    )
-
-    print(
-        "Result        :",
-        result
-    )
-
-    print(
-        "=============================================="
-    )
-
-    print()
+@app.route("/health", methods=["GET"])
+def health():
 
     return jsonify({
-
-        "status":
-        "success",
-
-        "message":
-        "Pollution data received successfully",
-
-        "machine_id":
-        machine_id
-
+        "status": "online",
+        "message": "PUC GSM server is running"
     }), 200
 
 
 # ============================================================
-# RAW PUC MACHINE HEX API
+# RAW DATA API
 # ============================================================
 
 @app.route(
@@ -377,293 +167,131 @@ def receive_data():
 )
 def receive_raw_data():
 
-    # ========================================================
-    # JSON
-    # ========================================================
+    print()
+    print("==============================================")
+    print("          PUC DATA RECEIVED")
+    print("==============================================")
 
-    data = request.get_json(
-        silent=True
-    )
+    # --------------------------------------------------------
+    # CONTENT TYPE
+    # --------------------------------------------------------
 
-    if not data:
+    content_type = request.content_type or ""
 
-        return jsonify({
+    print("Content-Type:", content_type)
 
-            "status":
-            "error",
+    # --------------------------------------------------------
+    # JSON DATA
+    # --------------------------------------------------------
 
-            "message":
-            "JSON data not received"
+    if request.is_json:
 
-        }), 400
+        data = request.get_json(
+            silent=True
+        )
 
-    # ========================================================
-    # READ DATA
-    # ========================================================
+        if not data:
 
-    machine_id = data.get(
-        "machine_id"
-    )
+            return jsonify({
+                "status": "error",
+                "message": "JSON data not received"
+            }), 400
 
-    raw_hex = data.get(
-        "raw_hex"
-    )
+        machine_id = data.get(
+            "machine_id",
+            "UNKNOWN"
+        )
 
-    # ========================================================
+        raw_data = data.get(
+            "raw_hex",
+            ""
+        )
+
+        if not raw_data:
+
+            raw_data = str(data)
+
+    # --------------------------------------------------------
+    # FORM DATA
+    # --------------------------------------------------------
+
+    elif request.form:
+
+        machine_id = request.form.get(
+            "machine_id",
+            "UNKNOWN"
+        )
+
+        raw_data = request.form.get(
+            "raw_hex",
+            ""
+        )
+
+        if not raw_data:
+
+            raw_data = str(
+                request.form.to_dict()
+            )
+
+    # --------------------------------------------------------
+    # PLAIN TEXT / RAW BODY
+    # --------------------------------------------------------
+
+    else:
+
+        raw_body = request.get_data(
+            as_text=True
+        )
+
+        machine_id = request.args.get(
+            "machine_id",
+            "UNKNOWN"
+        )
+
+        raw_data = raw_body
+
+    # --------------------------------------------------------
     # VALIDATION
-    # ========================================================
+    # --------------------------------------------------------
 
-    if not machine_id:
-
-        return jsonify({
-
-            "status":
-            "error",
-
-            "message":
-            "machine_id is required"
-
-        }), 400
-
-    if not raw_hex:
+    if not raw_data:
 
         return jsonify({
-
-            "status":
-            "error",
-
-            "message":
-            "raw_hex is required"
-
+            "status": "error",
+            "message": "No data received"
         }), 400
 
-    # ========================================================
-    # DECODE
-    # ========================================================
+    # --------------------------------------------------------
+    # SAVE
+    # --------------------------------------------------------
 
-    decoded = decode_puc_hex(
-        raw_hex
-    )
-
-    # ========================================================
-    # CHECK DECODER ERROR
-    # ========================================================
-
-    if decoded["error"]:
-
-        return jsonify({
-
-            "status":
-            "error",
-
-            "message":
-            decoded["error"]
-
-        }), 400
-
-    # ========================================================
-    # VALUES
-    # ========================================================
-
-    co = decoded["co"]
-
-    hc = decoded["hc"]
-
-    co2 = decoded["co2"]
-
-    o2 = decoded["o2"]
-
-    result = decoded["result"]
-
-    clean_hex = decoded["raw_hex"]
-
-    # ========================================================
-    # TIME
-    # ========================================================
-
-    received_at = datetime.now().strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-
-    # ========================================================
-    # DATABASE
-    # ========================================================
-
-    conn = sqlite3.connect(
-        DATABASE
-    )
-
-    # ========================================================
-    # SAVE RAW DATA
-    # ========================================================
-
-    conn.execute("""
-        INSERT INTO raw_machine_data
-        (
-            received_at,
-            machine_id,
-            raw_hex
-        )
-
-        VALUES (?, ?, ?)
-    """, (
-
-        received_at,
-
+    received_at = save_data(
         machine_id,
+        raw_data,
+        content_type
+    )
 
-        clean_hex
+    # --------------------------------------------------------
+    # TERMINAL
+    # --------------------------------------------------------
 
-    ))
+    print("Received Time :", received_at)
+    print("Machine ID    :", machine_id)
+    print("Raw Data      :", raw_data)
 
-    # ========================================================
-    # SAVE DECODED DATA
-    # ========================================================
-
-    conn.execute("""
-        INSERT INTO pollution_results
-        (
-            received_at,
-            machine_id,
-            co,
-            hc,
-            co2,
-            o2,
-            result
-        )
-
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-
-        received_at,
-
-        machine_id,
-
-        co,
-
-        hc,
-
-        co2,
-
-        o2,
-
-        result
-
-    ))
-
-    conn.commit()
-
-    conn.close()
-
-    # ========================================================
-    # TERMINAL OUTPUT
-    # ========================================================
-
+    print("==============================================")
     print()
 
-    print("==================================================")
-
-    print("          PUC MACHINE DATA RECEIVED")
-
-    print("==================================================")
-
-    print()
-
-    print(
-        "Received Time :",
-        received_at
-    )
-
-    print(
-        "Machine ID    :",
-        machine_id
-    )
-
-    print()
-
-    print("RAW HEX:")
-
-    print(
-        clean_hex
-    )
-
-    print()
-
-    print(
-        "TOTAL BYTES :",
-        decoded["total_bytes"]
-    )
-
-    print()
-
-    print("BYTE ANALYSIS:")
-
-    for item in decoded["bytes"]:
-
-        print(
-
-            f"BYTE[{item['index']:02d}] = "
-            f"{item['hex']} "
-            f"DEC={item['decimal']}"
-
-        )
-
-    print()
-
-    print("ASCII:")
-
-    print(
-        decoded["ascii"]
-    )
-
-    print()
-
-    print("DECODED POLLUTION VALUES:")
-
-    print(
-        "CO  :",
-        co
-    )
-
-    print(
-        "HC  :",
-        hc
-    )
-
-    print(
-        "CO2 :",
-        co2
-    )
-
-    print(
-        "O2  :",
-        o2
-    )
-
-    print(
-        "RESULT :",
-        result
-    )
-
-    print()
-
-    print(
-        "=================================================="
-    )
-
-    print()
-
-    # ========================================================
+    # --------------------------------------------------------
     # RESPONSE
-    # ========================================================
+    # --------------------------------------------------------
 
     return jsonify({
 
-        "status":
-        "success",
+        "status": "success",
 
         "message":
-        "Raw PUC machine data received",
+        "PUC machine data received successfully",
 
         "machine_id":
         machine_id,
@@ -671,61 +299,14 @@ def receive_raw_data():
         "received_at":
         received_at,
 
-        "raw_hex":
-        clean_hex,
-
-        "decoded": {
-
-            "co":
-            co,
-
-            "hc":
-            hc,
-
-            "co2":
-            co2,
-
-            "o2":
-            o2,
-
-            "result":
-            result
-
-        },
-
-        "analysis": {
-
-            "total_bytes":
-            decoded["total_bytes"],
-
-            "bytes":
-            decoded["bytes"],
-
-            "ascii":
-            decoded["ascii"],
-
-            "two_byte_candidates":
-            decoded[
-                "two_byte_candidates"
-            ],
-
-            "float_candidates":
-            decoded[
-                "float_candidates"
-            ],
-
-            "bcd_candidates":
-            decoded[
-                "bcd_candidates"
-            ]
-
-        }
+        "raw_data":
+        raw_data
 
     }), 200
 
 
 # ============================================================
-# VIEW POLLUTION RESULTS
+# VIEW DATA
 # ============================================================
 
 @app.route(
@@ -742,9 +323,7 @@ def view_data():
 
     rows = conn.execute("""
         SELECT *
-
-        FROM pollution_results
-
+        FROM machine_data
         ORDER BY id DESC
     """).fetchall()
 
@@ -758,7 +337,7 @@ def view_data():
 
     <head>
 
-        <title>PUC Pollution Results</title>
+        <title>PUC Machine Data</title>
 
         <meta
             http-equiv="refresh"
@@ -768,311 +347,35 @@ def view_data():
         <style>
 
             body {
-
                 font-family: Arial;
-
                 margin: 30px;
-
                 background: #f5f5f5;
-
             }
 
             h1 {
-
                 text-align: center;
-
             }
 
             table {
-
                 border-collapse: collapse;
-
                 width: 100%;
-
                 background: white;
-
             }
 
-            th,
-            td {
-
+            th, td {
                 border: 1px solid #999;
-
                 padding: 10px;
-
                 text-align: center;
-
             }
 
             th {
-
                 background: #eeeeee;
-
             }
 
-            .waiting {
-
-                color: gray;
-
-            }
-
-        </style>
-
-    </head>
-
-    <body>
-
-        <h1>
-            PUC Pollution Test Results
-        </h1>
-
-        <table>
-
-            <tr>
-
-                <th>ID</th>
-
-                <th>Received Time</th>
-
-                <th>Machine ID</th>
-
-                <th>CO</th>
-
-                <th>HC</th>
-
-                <th>CO2</th>
-
-                <th>O2</th>
-
-                <th>Result</th>
-
-            </tr>
-
-    """
-
-    # ========================================================
-    # TABLE ROWS
-    # ========================================================
-
-    for row in rows:
-
-        co = row["co"]
-
-        hc = row["hc"]
-
-        co2 = row["co2"]
-
-        o2 = row["o2"]
-
-        result = row["result"]
-
-        if co is not None:
-
-            co_display = html.escape(
-                str(co)
-            )
-
-        else:
-
-            co_display = (
-                '<span class="waiting">'
-                'Waiting for decoder'
-                '</span>'
-            )
-
-        if hc is not None:
-
-            hc_display = html.escape(
-                str(hc)
-            )
-
-        else:
-
-            hc_display = (
-                '<span class="waiting">'
-                'Waiting for decoder'
-                '</span>'
-            )
-
-        if co2 is not None:
-
-            co2_display = html.escape(
-                str(co2)
-            )
-
-        else:
-
-            co2_display = (
-                '<span class="waiting">'
-                'Waiting for decoder'
-                '</span>'
-            )
-
-        if o2 is not None:
-
-            o2_display = html.escape(
-                str(o2)
-            )
-
-        else:
-
-            o2_display = (
-                '<span class="waiting">'
-                'Waiting for decoder'
-                '</span>'
-            )
-
-        if result is not None:
-
-            result_display = html.escape(
-                str(result)
-            )
-
-        else:
-
-            result_display = "-"
-
-        html_page += f"""
-
-            <tr>
-
-                <td>
-                    {row['id']}
-                </td>
-
-                <td>
-                    {html.escape(
-                        str(row['received_at'])
-                    )}
-                </td>
-
-                <td>
-                    {html.escape(
-                        str(row['machine_id'])
-                    )}
-                </td>
-
-                <td>
-                    {co_display}
-                </td>
-
-                <td>
-                    {hc_display}
-                </td>
-
-                <td>
-                    {co2_display}
-                </td>
-
-                <td>
-                    {o2_display}
-                </td>
-
-                <td>
-                    {result_display}
-                </td>
-
-            </tr>
-
-        """
-
-    html_page += """
-
-        </table>
-
-    </body>
-
-    </html>
-
-    """
-
-    return html_page
-
-
-# ============================================================
-# VIEW RAW DATA
-# ============================================================
-
-@app.route(
-    "/raw",
-    methods=["GET"]
-)
-def view_raw_data():
-
-    conn = sqlite3.connect(
-        DATABASE
-    )
-
-    conn.row_factory = sqlite3.Row
-
-    rows = conn.execute("""
-        SELECT *
-
-        FROM raw_machine_data
-
-        ORDER BY id DESC
-    """).fetchall()
-
-    conn.close()
-
-    html_page = """
-
-    <!DOCTYPE html>
-
-    <html>
-
-    <head>
-
-        <title>Raw PUC Machine Data</title>
-
-        <meta
-            http-equiv="refresh"
-            content="5"
-        >
-
-        <style>
-
-            body {
-
-                font-family: Arial;
-
-                margin: 30px;
-
-                background: #f5f5f5;
-
-            }
-
-            table {
-
-                border-collapse: collapse;
-
-                width: 100%;
-
-                background: white;
-
-            }
-
-            th,
-            td {
-
-                border: 1px solid #999;
-
-                padding: 10px;
-
-            }
-
-            th {
-
-                background: #eeeeee;
-
-            }
-
-            .hex {
-
+            .raw {
                 font-family: monospace;
-
+                text-align: left;
                 word-break: break-all;
-
             }
 
         </style>
@@ -1081,9 +384,7 @@ def view_raw_data():
 
     <body>
 
-        <h1>
-            Raw PUC Machine Data
-        </h1>
+        <h1>PUC Machine Received Data</h1>
 
         <table>
 
@@ -1095,45 +396,49 @@ def view_raw_data():
 
                 <th>Machine ID</th>
 
-                <th>Raw HEX</th>
+                <th>Raw Data</th>
+
+                <th>Content Type</th>
 
             </tr>
 
     """
 
-    # ========================================================
-    # RAW ROWS
-    # ========================================================
-
     for row in rows:
 
         html_page += f"""
 
-            <tr>
+        <tr>
 
-                <td>
-                    {row['id']}
-                </td>
+            <td>
+                {row["id"]}
+            </td>
 
-                <td>
-                    {html.escape(
-                        str(row['received_at'])
-                    )}
-                </td>
+            <td>
+                {html.escape(
+                    str(row["received_at"])
+                )}
+            </td>
 
-                <td>
-                    {html.escape(
-                        str(row['machine_id'])
-                    )}
-                </td>
+            <td>
+                {html.escape(
+                    str(row["machine_id"])
+                )}
+            </td>
 
-                <td class="hex">
-                    {html.escape(
-                        str(row['raw_hex'])
-                    )}
-                </td>
+            <td class="raw">
+                {html.escape(
+                    str(row["raw_data"])
+                )}
+            </td>
 
-            </tr>
+            <td>
+                {html.escape(
+                    str(row["content_type"])
+                )}
+            </td>
+
+        </tr>
 
         """
 
@@ -1151,7 +456,7 @@ def view_raw_data():
 
 
 # ============================================================
-# START SERVER
+# START
 # ============================================================
 
 init_db()
@@ -1160,75 +465,13 @@ init_db()
 if __name__ == "__main__":
 
     print()
-
-    print(
-        "=============================================="
-    )
-
-    print(
-        "       PUC POLLUTION SERVER STARTED"
-    )
-
-    print(
-        "=============================================="
-    )
-
-    print()
-
-    print("Local URL:")
-
-    print(
-        "http://127.0.0.1:5000"
-    )
-
-    print()
-
-    print("Pollution API:")
-
-    print(
-        "http://127.0.0.1:5000/"
-        "api/v1/puc/results"
-    )
-
-    print()
-
-    print("Raw Data API:")
-
-    print(
-        "http://127.0.0.1:5000/"
-        "api/v1/puc/raw"
-    )
-
-    print()
-
-    print("View Pollution Results:")
-
-    print(
-        "http://127.0.0.1:5000/view"
-    )
-
-    print()
-
-    print("View Raw Machine Data:")
-
-    print(
-        "http://127.0.0.1:5000/raw"
-    )
-
-    print()
-
-    print(
-        "=============================================="
-    )
-
+    print("==============================================")
+    print("          PUC GSM SERVER STARTED")
+    print("==============================================")
     print()
 
     app.run(
-
         host="0.0.0.0",
-
         port=5000,
-
         debug=True
-
     )
