@@ -1,10 +1,14 @@
+
 from flask import Flask, request, jsonify
 from datetime import datetime
 import json
 
 app = Flask(__name__)
 
-# Store received data in memory
+# ============================================================
+# STORE RECEIVED DATA
+# ============================================================
+
 received_data = []
 
 
@@ -16,24 +20,44 @@ received_data = []
 def home():
 
     return """
-    <h1>PUC Data Server</h1>
+    <!DOCTYPE html>
 
-    <p>Server is running successfully.</p>
+    <html>
 
-    <p>
-        POST API:
-        <b>/api/v1/test/start</b>
-    </p>
+    <head>
 
-    <p>
-        View received data:
-        <b>/view</b>
-    </p>
+        <title>PUC Data Server</title>
+
+    </head>
+
+    <body>
+
+        <h1>PUC Data Server</h1>
+
+        <p>Server is running successfully.</p>
+
+        <h3>POST API</h3>
+
+        <p>
+            /api/v1/test/start
+        </p>
+
+        <h3>View Received Data</h3>
+
+        <p>
+            <a href="/view">
+                /view
+            </a>
+        </p>
+
+    </body>
+
+    </html>
     """
 
 
 # ============================================================
-# RECEIVE POST DATA
+# RECEIVE ANY JSON DATA
 # ============================================================
 
 @app.route(
@@ -42,76 +66,140 @@ def home():
 )
 def receive_data():
 
-    # --------------------------------------------------------
-    # Read JSON
-    # --------------------------------------------------------
+    received_at = datetime.now().strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+
+    # ========================================================
+    # GET RAW BODY
+    # ========================================================
+
+    raw_body = request.get_data(
+        as_text=True
+    )
+
+
+    # ========================================================
+    # PRINT REQUEST INFORMATION
+    # ========================================================
+
+    print()
+    print("==================================================")
+    print("             POST DATA RECEIVED")
+    print("==================================================")
+
+    print()
+    print("Received Time:")
+    print(received_at)
+
+    print()
+    print("Method:")
+    print(request.method)
+
+    print()
+    print("URL:")
+    print(request.url)
+
+    print()
+    print("Content-Type:")
+    print(request.content_type)
+
+    print()
+    print("RAW DATA:")
+    print(raw_body)
+
+
+    # ========================================================
+    # TRY TO READ JSON
+    # ========================================================
 
     data = request.get_json(
         silent=True
     )
 
-    if not data:
+
+    # ========================================================
+    # IF JSON IS INVALID
+    # ========================================================
+
+    if data is None:
+
+        print()
+        print("ERROR:")
+        print("Valid JSON data was not received.")
+
+        print()
+        print("==================================================")
+        print()
 
         return jsonify({
 
             "status": "error",
 
-            "message": "JSON data not received"
+            "message":
+                "Valid JSON data was not received",
+
+            "raw_data":
+                raw_body
 
         }), 400
 
 
-    # --------------------------------------------------------
-    # Add server time
-    # --------------------------------------------------------
+    # ========================================================
+    # STORE EXACT JSON
+    # ========================================================
 
     item = {
 
         "received_at":
-            datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
-            ),
+            received_at,
 
         "data":
             data
 
     }
 
-
-    # --------------------------------------------------------
-    # Store data
-    # --------------------------------------------------------
-
-    received_data.append(item)
+    received_data.append(
+        item
+    )
 
 
-    # --------------------------------------------------------
-    # Terminal
-    # --------------------------------------------------------
+    # ========================================================
+    # DISPLAY EXACT JSON IN TERMINAL
+    # ========================================================
 
     print()
-    print("==============================================")
-    print("             DATA RECEIVED")
-    print("==============================================")
+    print("JSON DATA:")
+    print("----------------------------------------------")
 
     print(
         json.dumps(
             data,
-            indent=4
+            indent=4,
+            ensure_ascii=False
         )
     )
 
-    print("==============================================")
+    print("----------------------------------------------")
+
+    print()
+    print("Total Received:")
+    print(len(received_data))
+
+    print()
+    print("==================================================")
     print()
 
 
-    # --------------------------------------------------------
-    # Response
-    # --------------------------------------------------------
+    # ========================================================
+    # RETURN SAME JSON BACK
+    # ========================================================
 
     return jsonify({
 
-        "status": "success",
+        "status":
+            "success",
 
         "message":
             "Data received successfully",
@@ -123,7 +211,7 @@ def receive_data():
 
 
 # ============================================================
-# VIEW RAW JSON DATA
+# VIEW EXACT RECEIVED JSON
 # ============================================================
 
 @app.route(
@@ -135,51 +223,153 @@ def view_data():
     if not received_data:
 
         return """
-        <h2>No data received yet.</h2>
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <title>Received Data</title>
+
+        </head>
+
+        <body>
+
+            <h1>Received Data</h1>
+
+            <h2>No data received yet.</h2>
+
+        </body>
+
+        </html>
         """
 
 
     output = ""
 
-    for item in reversed(received_data):
+
+    # ========================================================
+    # NEWEST DATA FIRST
+    # ========================================================
+
+    for item in reversed(
+        received_data
+    ):
+
+        json_text = json.dumps(
+
+            item["data"],
+
+            indent=4,
+
+            ensure_ascii=False
+
+        )
+
 
         output += f"""
-        <pre>
-Received Time:
-{item["received_at"]}
 
-Data:
-{json.dumps(
-    item["data"],
-    indent=4
-)}
+        <div style="
+            background:#f5f5f5;
+            padding:20px;
+            margin-bottom:20px;
+            border:1px solid #ddd;
+        ">
 
-----------------------------------------------
-        </pre>
+            <p>
+                <b>Received Time:</b>
+                {item["received_at"]}
+            </p>
+
+            <pre>{json_text}</pre>
+
+        </div>
+
         """
 
 
+    # ========================================================
+    # HTML PAGE
+    # ========================================================
+
     return f"""
+
     <!DOCTYPE html>
 
     <html>
 
     <head>
 
-        <title>PUC Received Data</title>
+        <title>Received JSON Data</title>
+
+        <meta
+            http-equiv="refresh"
+            content="5"
+        >
 
     </head>
 
     <body>
 
-        <h1>PUC Received Data</h1>
+        <h1>
+            Received JSON Data
+        </h1>
 
         {output}
 
     </body>
 
     </html>
+
     """
+
+
+# ============================================================
+# 404
+# ============================================================
+
+@app.errorhandler(404)
+def page_not_found(error):
+
+    return jsonify({
+
+        "status":
+            "error",
+
+        "message":
+            "URL not found",
+
+        "requested_url":
+            request.url,
+
+        "method":
+            request.method
+
+    }), 404
+
+
+# ============================================================
+# 405
+# ============================================================
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+
+    return jsonify({
+
+        "status":
+            "error",
+
+        "message":
+            "HTTP method not allowed",
+
+        "requested_url":
+            request.url,
+
+        "method":
+            request.method
+
+    }), 405
 
 
 # ============================================================
@@ -188,10 +378,41 @@ Data:
 
 if __name__ == "__main__":
 
+    print()
+    print("==================================================")
+    print("              PUC DATA SERVER")
+    print("==================================================")
+
+    print()
+    print("Local URL:")
+    print(
+        "http://127.0.0.1:5000/"
+    )
+
+    print()
+    print("POST API:")
+    print(
+        "http://127.0.0.1:5000"
+        "/api/v1/test/start"
+    )
+
+    print()
+    print("View Data:")
+    print(
+        "http://127.0.0.1:5000/view"
+    )
+
+    print()
+    print("==================================================")
+    print()
+
     app.run(
 
         host="0.0.0.0",
 
-        port=5000
+        port=5000,
+
+        debug=False
 
     )
+
